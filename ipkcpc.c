@@ -2,11 +2,11 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define SUCCESS 0
-#define MAX_HOST_SIZE 10
-#define MAX_PORT_SIZE 15 //IPv4 max length
 
-const char * usage = "ipkcpc -h <host> -p <port> -m <mode>";
+#define SUCCESS 0
+#define ERROR_ARGUMENTS 1 
+
+#define USAGE "./ipkcpc -h <host> -p <port> -m <mode>\n"
 
 typedef enum mode_t {
     undefined,
@@ -46,6 +46,11 @@ mode_t set_mode(char ** mode)
 
 int main(int argc, char **argv)
 {
+    if(argc <= 1)
+    {
+        fprintf(stderr,USAGE);
+        return ERROR_ARGUMENTS;
+    }
     //basic params to work with
     char * host= NULL;
     char * port= NULL;
@@ -93,7 +98,12 @@ int main(int argc, char **argv)
                     break;
             }
         }
-        else fprintf(stderr,"Error: Unknown command line arg.\n");
+        else 
+        {
+            fprintf(stderr,"Error: Unknown command line arg.\nUsage: %s\n", USAGE);
+            return ERROR_ARGUMENTS;
+        }
+    
     }
 
     printf("\n-----GOT DATA-----\n");
