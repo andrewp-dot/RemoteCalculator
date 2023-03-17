@@ -24,24 +24,13 @@
 #define USAGE "./ipkcpc -h <host> -p <port> -m <mode>\n"
 #define MAX_IP_PART_SIZE 255
 #define MAX_PORT 65535
+#define BUFFER_SIZE 1024
 
 typedef enum connection {
     undefined,
     tcp,
     udp
 }connection_t;
-
-// struct udp_addr_in
-// {
-//     /* data */
-// };
-
-// struct udp_addr_res
-// {
-//     /* data */
-// };
-
-
 
 void print_mode(connection_t m);
 
@@ -59,16 +48,6 @@ bool ip_is_ok(char * host);
 
 int udp_connection();
 int tcp_connection();
-
-void copy_after_payload(char * dest, char * src)
-{
-    dest[0] = 0;
-    for (int i = 1; i < strlen(src); i++)
-    {
-        dest[i] = src[i-1];
-    }
-    
-}
 
 int main(int argc, char **argv)
 {
@@ -205,40 +184,51 @@ int udp_connection(int port, char * host)
     
     printf("INFO: Server socket: %s : %d \n", inet_ntoa(server_address.sin_addr), ntohs(server_address.sin_port));
 
-    //problem s req formatom - opcode + payload length + payload
     int flags = 0;
-    char buffer[1024];
+    char buffer[BUFFER_SIZE];
 
-    fgets(buffer, 1023, stdin);
-    char msg_buffer[1024] = {0};
-    msg_buffer[0] = 0;
-    copy_after_payload(msg_buffer,buffer);
-
-    //send message - tu bude asi zacinat while -> fgets -> sendto
-    if(!strcmp("exit",msg_buffer))
+    while (true)
     {
-        close(client_socket);
-        return SUCCESS;
-    }
-    //strlen hadze chybu lebo zacina 0
-    int bytes_tx = sendto(client_socket, msg_buffer, strlen(msg_buffer),flags, (struct sockaddr *) &server_address, sizeof(server_address));
-    printf("[+] Data sent: %s\n",msg_buffer + 1);
-    if(bytes_tx < 0)
-    {
-        fprintf(stderr,"Error: sendto\n");
-        return EXIT_FAILURE;
-    }
+        fgets(buffer, BUFFER_SIZE-2, stdin);
+        char msg_buffer[BUFFER_SIZE] = {0};
+        msg_buffer[0] = 0;
+        msg_buffer[1] = strlen(buffer);
+        
+        strcpy(msg_buffer+2,buffer);
+        //TODO odstranit koniec riadku
+        msg_buffer[msg_buffer[1]+1]= 0;
+        msg_buffer[1] -= 1;
 
-    bzero(msg_buffer,1024);
+        //send message 
+        if(!strcmp("exit",msg_buffer + 2))
+        {
+            close(client_socket);
+            return SUCCESS;
+        }
+        //strlen hadze chybu lebo zacina 0
+        int bytes_tx = sendto(client_socket, msg_buffer, strlen(msg_buffer + 2) + 2,flags, (struct sockaddr *) &server_address, sizeof(server_address));
+        printf("[+] Data sent: %s\n",msg_buffer + 1);
+        if(bytes_tx < 0)
+        {
+            fprintf(stderr,"Error: sendto\n");
+            return EXIT_FAILURE;
+        }
 
-    //rec from
-    socklen_t rec_addr = sizeof(server_address);
-    int bytes_rx = recvfrom(client_socket, msg_buffer, 1024, flags, (struct sockaddr *)&server_address, &rec_addr);
-    if (bytes_rx < 0)
-    {
-        fprintf(stderr,"ERROR: recvfrom"); 
+        bzero(msg_buffer,BUFFER_SIZE);
+
+        //rec from
+        socklen_t rec_addr = sizeof(server_address);
+        int bytes_rx = recvfrom(client_socket, msg_buffer, BUFFER_SIZE, flags, (struct sockaddr *)&server_address, &rec_addr);
+        if (bytes_rx < 0)
+        {
+            fprintf(stderr,"ERROR: recvfrom"); 
+        }
+        if(msg_buffer[1]) printf("ERR:");
+        else printf("OK:");
+
+        printf("%s\n",msg_buffer + 3);
     }
-    printf("%s\n",msg_buffer);
+    
     close(client_socket);
     return SUCCESS;
     }
