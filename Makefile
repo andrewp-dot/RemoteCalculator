@@ -2,8 +2,8 @@ FILE=ipkcpc
 CC=gcc
 CFLAGS=-std=c99 -Wall -Werror -pedantic
 D_FLAGS=-fdiagnostics-color=always -g
-ARGS=-h 127.0.0.1 -p 2023 -m udp
-
+ARGS_UDP=-h 127.0.0.1 -p 2023 -m udp
+ARGS_TCP=-h 127.0.0.1 -p 2023 -m tcp
 
 ERR_FILE=err.log
 
@@ -13,8 +13,11 @@ make: ${FILE}.c
 debug:
 	${CC} ${CFLAGS} ${D_FLAGS} ${FILE}.c -o ${FILE}
 
-run: make
-	./${FILE} ${ARGS} 
+udp: make
+	./${FILE} ${ARGS_UDP} 
+
+tcp: make
+	./${FILE} ${ARGS_TCP} 
 
 clean: 
 	rm ${FILE} *.log 
