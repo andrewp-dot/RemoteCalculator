@@ -3,15 +3,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 
-// #if defined(__unix__) || defined(__linux__) || defined(_POSIX_VERSION) || defined(__APPLE__)
-
-// #endif
+#if !defined(_WIN32) && (defined(__unix__) || defined(__linux__) || defined(_POSIX_VERSION) || defined(__APPLE__))
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <signal.h>
+#endif
 
 #define SUCCESS 0
 #define ERROR_ARGUMENTS 1 
@@ -44,7 +42,7 @@ void print_mode();
  * @brief Nastavi mod spojenia (protokol)
  * 
  * @param mode - parameter 
- * @return mode_t 
+ * @return connection_t 
  */
 connection_t set_mode(char ** mode);
 
@@ -180,7 +178,7 @@ void close_connection(int num)
             write(STDERR_FILENO,"ERROR: send",12);
         }
 
-        bzero(buffer,BUFFER_SIZE);
+        memset(&buffer, 0, strlen(buffer));
 
         int bytes_rx = recv(*g_socket_pointer,buffer,BUFFER_SIZE,0);
         if (bytes_rx < 0)
@@ -250,16 +248,15 @@ int udp_connection(int port, char * host)
             close(client_socket);
             return SUCCESS;
         }
-        //strlen hadze chybu lebo zacina 0
+        
         int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + 2,flags, (struct sockaddr *) &server_address, sizeof(server_address));
-        printf("[+] Data sent: %s\n",msg_buffer + 1);
         if(bytes_tx < 0)
         {
             fprintf(stderr,"Error: sendto\n");
             return EXIT_FAILURE;
         }
 
-        bzero(msg_buffer,BUFFER_SIZE);
+        memset(&msg_buffer, 0, strlen(buffer));
 
         //rec from
         socklen_t rec_addr = sizeof(server_address);
@@ -272,7 +269,7 @@ int udp_connection(int port, char * host)
         if(msg_buffer[1]) printf("ERR:");
         else printf("OK:");
 
-        printf("%s\n",msg_buffer + 3);
+        printf("%s",msg_buffer + 3);
     }
     
     close(client_socket);
@@ -302,7 +299,7 @@ int tcp_connection(int port, char * host)
     server_address.sin_addr.s_addr = inet_addr(host);
     socklen_t server_addr_size = sizeof(server_address);
 
-    if(connect(client_socket,(const struct sockaddr *)&server_address,server_addr_size))
+    if(connect(client_socket,(const struct sockaddr *)&server_address,server_addr_size) != 0)
     {
         fprintf(stderr,"Error: connection failed.\n");
         return EXIT_FAILURE;
@@ -313,7 +310,6 @@ int tcp_connection(int port, char * host)
 
     while (true)
     {
-        //fix this
         fgets(buffer, BUFFER_SIZE-2, stdin);
         if(!strcmp("BYE\n",buffer)) end_connection = true;
 
@@ -323,7 +319,7 @@ int tcp_connection(int port, char * host)
             fprintf(stderr,"ERROR: send");
         }
 
-        bzero(buffer,BUFFER_SIZE);
+        memset(&buffer, 0, strlen(buffer));
 
         int bytes_rx = recv(client_socket,buffer,BUFFER_SIZE,0);
         if (bytes_rx < 0)

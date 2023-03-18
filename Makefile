@@ -2,8 +2,8 @@ FILE=ipkcpc
 CC=gcc
 CFLAGS=-std=c99 -Wall -Werror -pedantic
 D_FLAGS=-fdiagnostics-color=always -g
-ARGS_UDP=-h 127.0.0.1 -p 2023 -m udp
-ARGS_TCP=-h 127.0.0.1 -p 2023 -m tcp
+ARGS_UDP=-h 192.168.1.86 -p 2023 -m udp
+ARGS_TCP=-h 192.168.1.86 -p 2023 -m tcp
 
 ERR_FILE=err.log
 
