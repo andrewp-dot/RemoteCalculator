@@ -211,11 +211,11 @@ void close_connection(int num)
     if(mode == tcp)
     {
         char buffer[TCP_BUFFER_LIMIT];
-        write(STDOUT_FILENO,"BYE\n",5);
+        if(write(STDOUT_FILENO,"BYE\n",5) < 0) fprintf(stdout,"BYE\n");
         int bytes_tx = send(*g_socket_pointer,"BYE\n",strlen("BYE\n"),0);
         if (bytes_tx < 0)
         {
-            write(STDERR_FILENO,"ERROR: send",12);
+            if(write(STDERR_FILENO,"ERROR: send",12)) fprintf(stderr,"ERROR: send\n");
         }
 
         BZERO(buffer)
@@ -223,10 +223,10 @@ void close_connection(int num)
         int bytes_rx = recv(*g_socket_pointer,buffer,TCP_BUFFER_LIMIT,0);
         if (bytes_rx < 0)
         {
-            write(STDERR_FILENO,"ERROR: recv",12);
+            if(write(STDERR_FILENO,"ERROR: recv",12))  fprintf(stderr,"ERROR: recv");
         }
 
-        write(STDIN_FILENO,buffer,strlen(buffer));
+        if(write(STDIN_FILENO,buffer,strlen(buffer))) fprintf(stdout,"%s",buffer);
 
         shutdown(*g_socket_pointer,TCP_SHUTDOWN);
         if(close(*g_socket_pointer)) exit(EXIT_FAILURE);
@@ -307,15 +307,12 @@ int udp_connection(int port, char * host)
             return SUCCESS;
         }
 
-        while (true)
+        int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + UDP_HEADER_OFFSET,flags, (struct sockaddr *) &server_address, sizeof(server_address));
+        if(bytes_tx == 0) break;
+        if(bytes_tx < 0)
         {
-            int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + UDP_HEADER_OFFSET,flags, (struct sockaddr *) &server_address, sizeof(server_address));
-            if(bytes_tx == 0) break;
-            if(bytes_tx < 0)
-            {
-                fprintf(stderr,"Error: sendto\n");
-                return EXIT_FAILURE;
-            }
+            fprintf(stderr,"Error: sendto\n");
+            return EXIT_FAILURE;
         }
         
         BZERO(msg_buffer)
@@ -415,7 +412,7 @@ int tcp_connection(int port, char * host)
         
 
         if(!strncmp("BYE", rec_buffer,3)) end_connection = true;
-        memset(rec_buffer, 0, sizeof(rec_buffer));
+        BZERO(rec_buffer)
 
         if(end_connection)
         {
