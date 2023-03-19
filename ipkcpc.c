@@ -211,7 +211,7 @@ void close_connection(int num)
         int bytes_tx = send(*g_socket_pointer,"BYE\n",strlen("BYE\n"),0);
         if (bytes_tx < 0)
         {
-            if(write(STDERR_FILENO,"ERROR: send",12)) fprintf(stderr,"ERROR: send\n");
+            if(write(STDERR_FILENO,"ERROR: send",12)< 0) fprintf(stderr,"ERROR: send\n");
         }
 
         BZERO(buffer)
@@ -219,10 +219,10 @@ void close_connection(int num)
         int bytes_rx = recv(*g_socket_pointer,buffer,TCP_BUFFER_LIMIT,0);
         if (bytes_rx < 0)
         {
-            if(write(STDERR_FILENO,"ERROR: recv",12))  fprintf(stderr,"ERROR: recv");
+            if(write(STDERR_FILENO,"ERROR: recv",12) < 0)  fprintf(stderr,"ERROR: recv");
         }
 
-        if(write(STDIN_FILENO,buffer,strlen(buffer))) fprintf(stdout,"%s",buffer);
+        if(write(STDIN_FILENO,buffer,strlen(buffer)) < 0) fprintf(stdout,"%s",buffer);
 
         shutdown(*g_socket_pointer,TCP_SHUTDOWN);
         if(close(*g_socket_pointer)) exit(EXIT_FAILURE);
@@ -387,7 +387,6 @@ int tcp_connection(int port, char * host)
 
         
         int bytes_tx = send(client_socket,send_buffer,strlen(send_buffer),0);
-        printf("bytes sent: %d\n", bytes_tx);
         if(bytes_tx == 0) break;
         if (bytes_tx < 0)
         {
