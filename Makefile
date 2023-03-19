@@ -22,3 +22,8 @@ tcp: make
 clean: 
 	rm ${FILE} *.log 
 
+win:
+	${CC} ${CFLAGS} ${FILE}.c -o ${FILE} -lws2_32
+# windows compilation
+# gcc -std=c99 -Wall -Werror -pedantic ipkcpc.c -o ipkcpc -lws2_32
+# 192.168.1.86:2023

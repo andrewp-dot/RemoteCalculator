@@ -9,16 +9,35 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <signal.h>
+
+#define TCP_SHUTDOWN SHUT_RDWR
+#define TERMINATION_HANDLING  \
+    signal(SIGINT,close_connection); \
+    signal(SIGTERM,close_connection);
+
+#define WSA_CLEANUP ;
+
+#elif defined(_WIN32)
+#include <winsock2.h>
+#include <WS2tcpip.h>
+#include <Windows.h>
+
+#define TCP_SHUTDOWN SD_BOTH
+#define TERMINATION_HANDLING  \
+    SetConsoleCtrlHandler(HandlerRoutine,true);
+
+#define WSA_CLEANUP WSACleanup();
 #endif
 
 #define SUCCESS 0
-#define ERROR_ARGUMENTS 1 
+#define ERROR_ARGUMENTS 10 
 
 /**
  * TODO:
+ * limity pre jednotlive protokoly
  * dorobit usage + error kody
  * testy 
- * kompatibilitu pre windows
+ * fix ked je to disconectnute
  */
 #define USAGE "./ipkcpc -h <host> -p <port> -m <mode>\n"
 #define MAX_IP_PART_SIZE 255
@@ -32,7 +51,7 @@ typedef enum connection {
 }connection_t;
 
 //nahradit prepinacom
-int * g_socket_pointer = false;
+int * g_socket_pointer = NULL;
 connection_t mode = undefined; 
 void close_connection(int num);
 
@@ -53,9 +72,20 @@ bool ip_is_ok(char * host);
 int udp_connection();
 int tcp_connection();
 
+#if defined(_WIN32)
+BOOL WINAPI HandlerRoutine(DWORD dwCtrlType)
+{
+    if(dwCtrlType == CTRL_C_EVENT)
+    {
+        close_connection(CTRL_C_EVENT);
+        return true;
+    } 
+    return false;
+}
+#endif
+
 int main(int argc, char **argv)
 {
-
     if(argc <= 1)
     {
         fprintf(stderr,USAGE);
@@ -188,31 +218,49 @@ void close_connection(int num)
 
         write(STDIN_FILENO,buffer,strlen(buffer));
 
-        shutdown(*g_socket_pointer,SHUT_RDWR);
+        shutdown(*g_socket_pointer,TCP_SHUTDOWN);
+        if(close(*g_socket_pointer)) exit(EXIT_FAILURE);
         g_socket_pointer = NULL;
+        WSA_CLEANUP
         exit(SUCCESS);
     }
     else if(mode == udp)
     {
-        if(close(*g_socket_pointer)) exit(EXIT_FAILURE);
+        if(close(*g_socket_pointer)) 
+        {
+            WSA_CLEANUP
+            exit(EXIT_FAILURE);
+        }
+        WSA_CLEANUP
         exit(SUCCESS);
     }
 }
 
 int udp_connection(int port, char * host)
 {
-    //handling terminating
-    signal(SIGINT,close_connection);
-    signal(SIGTERM,close_connection);
+    TERMINATION_HANDLING
 
     int family = AF_INET;
 
+    #if defined(_WIN32)
+    //initializing winsock for windows
+    WSADATA wsa;
+	if (WSAStartup(MAKEWORD(2,2),&wsa) != 0)
+	{
+		printf("Failed. Error Code : %d",WSAGetLastError());
+        close_connection(0);
+		return EXIT_FAILURE;
+	}
+	
+    #endif
+
     //create socket
-    int client_socket = socket(family, SOCK_DGRAM, 0); 
+    int client_socket = socket(family, SOCK_DGRAM, 0);
     g_socket_pointer = &client_socket;
     if (client_socket <= 0)
     {
         fprintf(stderr, "ERROR: socket");
+        close_connection(0);
         return EXIT_FAILURE;
     }
 
@@ -269,7 +317,8 @@ int udp_connection(int port, char * host)
         if(msg_buffer[1]) printf("ERR:");
         else printf("OK:");
 
-        printf("%s",msg_buffer + 3);
+        printf("%s\n",msg_buffer + 3);
+        memset(&msg_buffer, 0, strlen(msg_buffer));
     }
     
     close(client_socket);
@@ -279,16 +328,28 @@ int udp_connection(int port, char * host)
 int tcp_connection(int port, char * host)
 {   
      //handling terminating
-    signal(SIGINT,close_connection);
-    signal(SIGTERM,close_connection);
+     TERMINATION_HANDLING
 
     int family = AF_INET;
+
+    #if defined(_WIN32)
+    
+    WSADATA wsa;
+	// printf("\nInitialising Winsock...");
+	if (WSAStartup(MAKEWORD(2,2),&wsa) != 0)
+	{
+		printf("Failed. Error Code : %d",WSAGetLastError());
+		return 1;
+	}
+	
+    #endif 
 
     int client_socket = socket(family, SOCK_STREAM, 0); 
     g_socket_pointer = &client_socket;
     if (client_socket <= 0)
     {
         fprintf(stderr, "ERROR: socket");
+        close_connection(0);
         return EXIT_FAILURE;
     }
 
@@ -306,12 +367,13 @@ int tcp_connection(int port, char * host)
     }
 
     char buffer[BUFFER_SIZE];
+    char rec_buffer[BUFFER_SIZE];
     bool end_connection = false;
 
     while (true)
     {
         fgets(buffer, BUFFER_SIZE-2, stdin);
-        if(!strcmp("BYE\n",buffer)) end_connection = true;
+        if(!strncmp("BYE", buffer,3)) end_connection = true;
 
         int bytes_tx = send(client_socket,buffer,strlen(buffer),0);
         if (bytes_tx < 0)
@@ -319,18 +381,24 @@ int tcp_connection(int port, char * host)
             fprintf(stderr,"ERROR: send");
         }
 
-        memset(&buffer, 0, strlen(buffer));      
-    
-        int bytes_rx = recv(client_socket,buffer,BUFFER_SIZE,0);
+        memset(&buffer, 0, strlen(buffer));
+
+        memset(&rec_buffer, 0, strlen(rec_buffer));
+
+        int bytes_rx = recv(client_socket,rec_buffer,BUFFER_SIZE,0);
         if (bytes_rx < 0)
         {
-            fprintf(stderr,"ERROR: recv");
+            fprintf(stderr,"ERROR: recv\n");
         }
-        printf("%s",buffer); 
-        
+        else fprintf(stdout,"R:%s",rec_buffer);
+
+        if(!strncmp("BYE", rec_buffer,3)) end_connection = true;
+        memset(&rec_buffer, 0, strlen(rec_buffer));
+
         if(end_connection)
         {
-            shutdown(client_socket,SHUT_RDWR);
+            shutdown(client_socket,TCP_SHUTDOWN);
+            if(!close(client_socket)) return EXIT_FAILURE;
             return SUCCESS;
         }
         
