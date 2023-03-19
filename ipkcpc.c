@@ -16,6 +16,8 @@
     signal(SIGTERM,close_connection);
 
 #define WSA_CLEANUP ;
+#define BZERO(buffer) bzero(buffer,sizeof(buffer));
+
 
 #elif defined(_WIN32)
 #include <winsock2.h>
@@ -27,6 +29,7 @@
     SetConsoleCtrlHandler(HandlerRoutine,true);
 
 #define WSA_CLEANUP WSACleanup();
+#define BZERO(buffer) memset(buffer, 0, sizeof(buffer));
 #endif
 
 #define SUCCESS 0
@@ -48,6 +51,7 @@
 #define UDP_BUFFER_LIMIT 1024
 
 #define UDP_HEADER_OFFSET 2
+#define UDP_RESPONSE_OFFSET 3
 #define END_OF_STRING 1
 
 typedef enum connection {
@@ -184,8 +188,8 @@ bool is_num(char * str)
 
 bool ip_is_ok(char * host)
 {
-    int ip_length = strlen(host);
-    if(!isdigit(*host) || !isdigit(host[ip_length-1])) return false;
+    int ip_length = strlen(host) + END_OF_STRING;
+    if(!isdigit(*host) || !isdigit(host[ip_length-END_OF_STRING-1])) return false;
     char verify_host[ip_length];
     strcpy(verify_host,host);
     char * token = strtok(verify_host,".");
@@ -214,7 +218,7 @@ void close_connection(int num)
             write(STDERR_FILENO,"ERROR: send",12);
         }
 
-        memset(buffer, 0, sizeof(buffer));
+        BZERO(buffer)
 
         int bytes_rx = recv(*g_socket_pointer,buffer,TCP_BUFFER_LIMIT,0);
         if (bytes_rx < 0)
@@ -281,7 +285,7 @@ int udp_connection(int port, char * host)
 
     int flags = 0;
     char buffer[UDP_BUFFER_LIMIT];
-    memset(buffer, 0, sizeof(buffer));
+    BZERO(buffer)
 
     while (fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin))
     {
@@ -297,7 +301,7 @@ int udp_connection(int port, char * host)
         }
 
         //send message 
-        if(!strcmp("exit",msg_buffer + 2))
+        if(!strcmp("exit",msg_buffer + UDP_HEADER_OFFSET))
         {
             close(client_socket);
             return SUCCESS;
@@ -305,7 +309,7 @@ int udp_connection(int port, char * host)
 
         while (true)
         {
-            int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + 2,flags, (struct sockaddr *) &server_address, sizeof(server_address));
+            int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + UDP_HEADER_OFFSET,flags, (struct sockaddr *) &server_address, sizeof(server_address));
             if(bytes_tx == 0) break;
             if(bytes_tx < 0)
             {
@@ -314,26 +318,23 @@ int udp_connection(int port, char * host)
             }
         }
         
-        memset(msg_buffer, 0, sizeof(buffer));
+        BZERO(msg_buffer)
 
         //rec from
         socklen_t rec_addr = sizeof(server_address);
-        while (true)
+        int bytes_rx = recvfrom(client_socket, msg_buffer, UDP_BUFFER_LIMIT, flags, (struct sockaddr *)&server_address, &rec_addr);
+        if(bytes_rx == 0) break;
+        if (bytes_rx < 0)
         {
-            int bytes_rx = recvfrom(client_socket, msg_buffer, UDP_BUFFER_LIMIT, flags, (struct sockaddr *)&server_address, &rec_addr);
-            if(bytes_rx == 0) break;
-            if (bytes_rx < 0)
-            {
-                fprintf(stderr,"ERROR: recvfrom");
-                continue;
-            }
+            fprintf(stderr,"ERROR: recvfrom");
+            continue;
         }
-
+        
         if(msg_buffer[1]) printf("ERR:");
         else printf("OK:");
 
-        printf("%s\n",msg_buffer + 3);
-        memset(msg_buffer, 0, sizeof(msg_buffer));
+        printf("%s\n",msg_buffer + UDP_RESPONSE_OFFSET);
+        BZERO(msg_buffer)
     }
     g_socket_pointer = NULL;
     close(client_socket);
@@ -384,8 +385,8 @@ int tcp_connection(int port, char * host)
     char rec_buffer[TCP_BUFFER_LIMIT];
     bool end_connection = false;
 
-    memset(send_buffer, 0, sizeof(send_buffer));
-    memset(rec_buffer, 0, sizeof(rec_buffer));
+    BZERO(send_buffer)
+    BZERO(rec_buffer)
 
     while (fgets(send_buffer, TCP_BUFFER_LIMIT, stdin))
     {
@@ -399,21 +400,18 @@ int tcp_connection(int port, char * host)
         {
             fprintf(stderr,"ERROR: send");
         }
-        
-        memset(send_buffer, 0, sizeof(send_buffer));
-        memset(rec_buffer, 0, sizeof(rec_buffer));
 
-        
-        while (true)
+        BZERO(send_buffer)
+        BZERO(rec_buffer)
+
+        int bytes_rx = recv(client_socket,rec_buffer,TCP_BUFFER_LIMIT,0);
+        if(bytes_rx == 0) break;
+        if (bytes_rx < 0)
         {
-            int bytes_rx = recv(client_socket,rec_buffer,TCP_BUFFER_LIMIT,0);
-            if(bytes_rx == 0) break;
-            if (bytes_rx < 0)
-            {
-                fprintf(stderr,"ERROR: recv");
-            }
-            else fprintf(stdout,"%s",rec_buffer);
+            fprintf(stderr,"ERROR: recv");
         }
+        else fprintf(stdout,"%s",rec_buffer);
+        
         
 
         if(!strncmp("BYE", rec_buffer,3)) end_connection = true;
