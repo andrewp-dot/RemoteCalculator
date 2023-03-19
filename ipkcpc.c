@@ -16,7 +16,7 @@
     signal(SIGTERM,close_connection);
 
 #define WSA_CLEANUP ;
-#define BZERO(buffer) bzero(buffer,sizeof(buffer));
+
 
 
 #elif defined(_WIN32)
@@ -29,22 +29,19 @@
     SetConsoleCtrlHandler(HandlerRoutine,true);
 
 #define WSA_CLEANUP WSACleanup();
-#define BZERO(buffer) memset(buffer, 0, sizeof(buffer));
+
 #endif
 
 #define SUCCESS 0
 #define ERROR_ARGUMENTS 10 
+#define BZERO(buffer) memset(buffer, 0, sizeof(buffer));
 
-
-/**
- * TODO:
- * fix udp recv
- * limity pre jednotlive protokoly
- * dorobit usage + error kody
- * testy vlastne plus vo virtualke
- */
-
-#define USAGE "./ipkcpc -h <host> -p <port> -m <mode>\n"
+#define USAGE \
+"./ipkcpc -h <host> -p <port> -m <mode>\n\
+<host> 0.0.0.0 - 255.255.255.255\n\
+<port> 0 - 65535\n\
+<mode> udp/tcp\n\
+"
 #define MAX_IP_PART_SIZE 255
 #define MAX_PORT 65535
 #define TCP_BUFFER_LIMIT 1024
@@ -60,7 +57,6 @@ typedef enum connection {
     udp
 }connection_t;
 
-//nahradit prepinacom
 int * g_socket_pointer = NULL;
 connection_t mode = undefined; 
 void close_connection(int num);
