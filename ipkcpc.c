@@ -319,14 +319,15 @@ int tcp_connection(int port, char * host)
             fprintf(stderr,"ERROR: send");
         }
 
-        memset(&buffer, 0, strlen(buffer));
-
+        memset(&buffer, 0, strlen(buffer));      
+    
         int bytes_rx = recv(client_socket,buffer,BUFFER_SIZE,0);
         if (bytes_rx < 0)
         {
             fprintf(stderr,"ERROR: recv");
         }
-        printf("%s",buffer);
+        printf("%s",buffer); 
+        
         if(end_connection)
         {
             shutdown(client_socket,SHUT_RDWR);
