@@ -32,17 +32,23 @@
 #define SUCCESS 0
 #define ERROR_ARGUMENTS 10 
 
+
 /**
  * TODO:
+ * fix udp recv
  * limity pre jednotlive protokoly
  * dorobit usage + error kody
- * testy 
- * fix ked je to disconectnute
+ * testy vlastne plus vo virtualke
  */
+
 #define USAGE "./ipkcpc -h <host> -p <port> -m <mode>\n"
 #define MAX_IP_PART_SIZE 255
 #define MAX_PORT 65535
-#define BUFFER_SIZE 1024
+#define TCP_BUFFER_LIMIT 1024
+#define UDP_BUFFER_LIMIT 1024
+
+#define UDP_HEADER_OFFSET 2
+#define END_OF_STRING 1
 
 typedef enum connection {
     undefined,
@@ -200,7 +206,7 @@ void close_connection(int num)
     if(g_socket_pointer == NULL) exit(SUCCESS);
     if(mode == tcp)
     {
-        char buffer[BUFFER_SIZE];
+        char buffer[TCP_BUFFER_LIMIT];
         write(STDOUT_FILENO,"BYE\n",5);
         int bytes_tx = send(*g_socket_pointer,"BYE\n",strlen("BYE\n"),0);
         if (bytes_tx < 0)
@@ -208,9 +214,9 @@ void close_connection(int num)
             write(STDERR_FILENO,"ERROR: send",12);
         }
 
-        memset(&buffer, 0, strlen(buffer));
+        memset(buffer, 0, sizeof(buffer));
 
-        int bytes_rx = recv(*g_socket_pointer,buffer,BUFFER_SIZE,0);
+        int bytes_rx = recv(*g_socket_pointer,buffer,TCP_BUFFER_LIMIT,0);
         if (bytes_rx < 0)
         {
             write(STDERR_FILENO,"ERROR: recv",12);
@@ -274,19 +280,19 @@ int udp_connection(int port, char * host)
     printf("INFO: Server socket: %s : %d \n", inet_ntoa(server_address.sin_addr), ntohs(server_address.sin_port));
 
     int flags = 0;
-    char buffer[BUFFER_SIZE];
+    char buffer[UDP_BUFFER_LIMIT];
+    memset(buffer, 0, sizeof(buffer));
 
-    while (true)
+    while (fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin))
     {
-        fgets(buffer, BUFFER_SIZE-2, stdin);
-        char msg_buffer[BUFFER_SIZE] = {0};
+        char msg_buffer[UDP_BUFFER_LIMIT] = {0};
         msg_buffer[0] = 0;
         msg_buffer[1] = strlen(buffer);
         
-        strcpy(msg_buffer+2,buffer);
-        if(msg_buffer[msg_buffer[1]+1] == '\n') //potencionalny koniec riadku na indexe msg_buffer[msg_bffer[1]-1+2]
+        strcpy(msg_buffer+UDP_HEADER_OFFSET,buffer);
+        if(msg_buffer[msg_buffer[1]+UDP_HEADER_OFFSET-1] == '\n') //potencionalny koniec riadku na indexe msg_buffer[msg_bffer[1]-1+2]
         {
-            msg_buffer[msg_buffer[1]+1] = 0;
+            msg_buffer[msg_buffer[1]+UDP_HEADER_OFFSET-1] = 0;
             msg_buffer[1] -= 1;
         }
 
@@ -296,31 +302,40 @@ int udp_connection(int port, char * host)
             close(client_socket);
             return SUCCESS;
         }
-        
-        int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + 2,flags, (struct sockaddr *) &server_address, sizeof(server_address));
-        if(bytes_tx < 0)
-        {
-            fprintf(stderr,"Error: sendto\n");
-            return EXIT_FAILURE;
-        }
 
-        memset(&msg_buffer, 0, strlen(buffer));
+        while (true)
+        {
+            int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + 2,flags, (struct sockaddr *) &server_address, sizeof(server_address));
+            if(bytes_tx == 0) break;
+            if(bytes_tx < 0)
+            {
+                fprintf(stderr,"Error: sendto\n");
+                return EXIT_FAILURE;
+            }
+        }
+        
+        memset(msg_buffer, 0, sizeof(buffer));
 
         //rec from
         socklen_t rec_addr = sizeof(server_address);
-        int bytes_rx = recvfrom(client_socket, msg_buffer, BUFFER_SIZE, flags, (struct sockaddr *)&server_address, &rec_addr);
-        if (bytes_rx < 0)
+        while (true)
         {
-            fprintf(stderr,"ERROR: recvfrom");
-            continue;
+            int bytes_rx = recvfrom(client_socket, msg_buffer, UDP_BUFFER_LIMIT, flags, (struct sockaddr *)&server_address, &rec_addr);
+            if(bytes_rx == 0) break;
+            if (bytes_rx < 0)
+            {
+                fprintf(stderr,"ERROR: recvfrom");
+                continue;
+            }
         }
+
         if(msg_buffer[1]) printf("ERR:");
         else printf("OK:");
 
         printf("%s\n",msg_buffer + 3);
-        memset(&msg_buffer, 0, strlen(msg_buffer));
+        memset(msg_buffer, 0, sizeof(msg_buffer));
     }
-    
+    g_socket_pointer = NULL;
     close(client_socket);
     return SUCCESS;
 }
@@ -328,7 +343,7 @@ int udp_connection(int port, char * host)
 int tcp_connection(int port, char * host)
 {   
      //handling terminating
-     TERMINATION_HANDLING
+    TERMINATION_HANDLING
 
     int family = AF_INET;
 
@@ -349,7 +364,6 @@ int tcp_connection(int port, char * host)
     if (client_socket <= 0)
     {
         fprintf(stderr, "ERROR: socket");
-        close_connection(0);
         return EXIT_FAILURE;
     }
 
@@ -366,43 +380,53 @@ int tcp_connection(int port, char * host)
         return EXIT_FAILURE;
     }
 
-    char buffer[BUFFER_SIZE];
-    char rec_buffer[BUFFER_SIZE];
+    char send_buffer[TCP_BUFFER_LIMIT];
+    char rec_buffer[TCP_BUFFER_LIMIT];
     bool end_connection = false;
 
-    while (true)
-    {
-        fgets(buffer, BUFFER_SIZE-2, stdin);
-        if(!strncmp("BYE", buffer,3)) end_connection = true;
+    memset(send_buffer, 0, sizeof(send_buffer));
+    memset(rec_buffer, 0, sizeof(rec_buffer));
 
-        int bytes_tx = send(client_socket,buffer,strlen(buffer),0);
+    while (fgets(send_buffer, TCP_BUFFER_LIMIT, stdin))
+    {
+        if(!strncmp("BYE", send_buffer,3)) end_connection = true;
+
+        
+        int bytes_tx = send(client_socket,send_buffer,strlen(send_buffer),0);
+        printf("bytes sent: %d\n", bytes_tx);
+        if(bytes_tx == 0) break;
         if (bytes_tx < 0)
         {
             fprintf(stderr,"ERROR: send");
         }
+        
+        memset(send_buffer, 0, sizeof(send_buffer));
+        memset(rec_buffer, 0, sizeof(rec_buffer));
 
-        memset(&buffer, 0, strlen(buffer));
-
-        memset(&rec_buffer, 0, strlen(rec_buffer));
-
-        int bytes_rx = recv(client_socket,rec_buffer,BUFFER_SIZE,0);
-        if (bytes_rx < 0)
+        
+        while (true)
         {
-            fprintf(stderr,"ERROR: recv\n");
+            int bytes_rx = recv(client_socket,rec_buffer,TCP_BUFFER_LIMIT,0);
+            if(bytes_rx == 0) break;
+            if (bytes_rx < 0)
+            {
+                fprintf(stderr,"ERROR: recv");
+            }
+            else fprintf(stdout,"%s",rec_buffer);
         }
-        else fprintf(stdout,"R:%s",rec_buffer);
+        
 
         if(!strncmp("BYE", rec_buffer,3)) end_connection = true;
-        memset(&rec_buffer, 0, strlen(rec_buffer));
+        memset(rec_buffer, 0, sizeof(rec_buffer));
 
         if(end_connection)
         {
             shutdown(client_socket,TCP_SHUTDOWN);
-            if(!close(client_socket)) return EXIT_FAILURE;
+            if(close(client_socket)) return EXIT_FAILURE;
             return SUCCESS;
         }
         
     }
-
+    close_connection(0);
     return SUCCESS;
 }
