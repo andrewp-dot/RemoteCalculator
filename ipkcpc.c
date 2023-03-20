@@ -17,8 +17,6 @@
 
 #define WSA_CLEANUP ;
 
-
-
 #elif defined(_WIN32)
 #include <winsock2.h>
 #include <WS2tcpip.h>
@@ -44,8 +42,8 @@
 "
 #define MAX_IP_PART_SIZE 255
 #define MAX_PORT 65535
-#define TCP_BUFFER_LIMIT 1024
-#define UDP_BUFFER_LIMIT 1024
+#define TCP_BUFFER_LIMIT 65536 //2^16
+#define UDP_BUFFER_LIMIT 256
 
 #define UDP_HEADER_OFFSET 2
 #define UDP_RESPONSE_OFFSET 3
@@ -276,33 +274,26 @@ int udp_connection(int port, char * host)
     server_address.sin_family = family;
     server_address.sin_port = htons(port);
     server_address.sin_addr.s_addr = inet_addr(host);
-    
-    printf("INFO: Server socket: %s : %d \n", inet_ntoa(server_address.sin_addr), ntohs(server_address.sin_port));
 
     int flags = 0;
     char buffer[UDP_BUFFER_LIMIT];
     BZERO(buffer)
 
-    while (fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin))
+    while (true) //mozno zmenit aby sa to nedalo ukoncit CTRL+D
     {
+        fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin);
         char msg_buffer[UDP_BUFFER_LIMIT] = {0};
         msg_buffer[0] = 0;
         msg_buffer[1] = strlen(buffer);
         
         strcpy(msg_buffer+UDP_HEADER_OFFSET,buffer);
-        if(msg_buffer[msg_buffer[1]+UDP_HEADER_OFFSET-1] == '\n') //potencionalny koniec riadku na indexe msg_buffer[msg_bffer[1]-1+2]
+        if(msg_buffer[msg_buffer[1]+UDP_HEADER_OFFSET-1] == '\n') 
         {
             msg_buffer[msg_buffer[1]+UDP_HEADER_OFFSET-1] = 0;
             msg_buffer[1] -= 1;
         }
 
         //send message 
-        if(!strcmp("exit",msg_buffer + UDP_HEADER_OFFSET))
-        {
-            close(client_socket);
-            return SUCCESS;
-        }
-
         int bytes_tx = sendto(client_socket, msg_buffer, msg_buffer[1] + UDP_HEADER_OFFSET,flags, (struct sockaddr *) &server_address, sizeof(server_address));
         if(bytes_tx == 0) break;
         if(bytes_tx < 0)
@@ -370,7 +361,7 @@ int tcp_connection(int port, char * host)
 
     if(connect(client_socket,(const struct sockaddr *)&server_address,server_addr_size) != 0)
     {
-        fprintf(stderr,"Error: connection failed.\n");
+        fprintf(stderr,"Error: connection failed.");
         return EXIT_FAILURE;
     }
 

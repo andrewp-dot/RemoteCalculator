@@ -2,6 +2,8 @@ FILE=ipkcpc
 CC=gcc
 CFLAGS=-std=c99 -Wall -Werror -pedantic
 D_FLAGS=-fdiagnostics-color=always -g
+
+TEST_DIR=tests
 ARGS_UDP=-h 127.0.0.1 -p 2023 -m udp
 ARGS_TCP=-h 127.0.0.1 -p 2023 -m tcp
 
@@ -24,6 +26,6 @@ clean:
 
 win:
 	${CC} ${CFLAGS} ${FILE}.c -o ${FILE} -lws2_32
-# windows compilation
-# gcc -std=c99 -Wall -Werror -pedantic ipkcpc.c -o ipkcpc -lws2_32
-# 192.168.1.86:2023
+
+test_inputs: make 
+	python3 test_inputs.py 
