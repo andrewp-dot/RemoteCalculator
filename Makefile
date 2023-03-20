@@ -30,5 +30,5 @@ test_inputs: make
 	python3 test_inputs.py 
 
 zip:
-	zip ${LOGIN}.zip ./imgs/* Makefile test_inputs.py ${FILE}.c README.md LICENSE CHANGELOG.md
+	zip ${LOGIN}.zip ./imgs/* Makefile test_inputs.py ${FILE}.c README.md LICENSE CHANGELOG.md ${LOGIN}_repo.png
 	
