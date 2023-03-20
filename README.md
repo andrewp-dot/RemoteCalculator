@@ -7,7 +7,7 @@
 ## Obsah
 
 - Teória nutná k pochopeniu projektu
-- Funkčné časti kódu
+- Program
 - Testovanie programu
 - Zdroje
 
