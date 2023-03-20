@@ -62,7 +62,13 @@ Tento typ testovania bol využitý najmä pre testy kontroly správnosti príjma
 
 Testy boli vykonané v referenčnom protredí. Testované boli hlavne prípady ukončenia programu, ale aj funkčosť výstupu.
 
-# SEM OBRAZKY
+Ilustračný obrázok testovania protokolu tcp:
+
+![TCP testovanie](./imgs/TCP_testing_img.png)
+
+Ilustračný obrázok testovania udp:
+
+![UDP testovanie](./imgs/UDP_testing.png)
 
 ## Zdroje
 
