@@ -11,13 +11,23 @@
 - Testovanie programu
 - Zdroje
 
-<!-- doplnit list -->
-
 ## Teória
 
 ### TCP
 
+Vytvára spojenie medzi práve dvomi stranami. Cez spojenie je možné príjmať aj posielať správy.
+
+#### Nadviazanie spojenia
+
+Zjednodušene: každá z komuničkných strán si vytvorí nádnodné poradové čislo, od ktorého bude číslovať bity. Úplne prvý datagram, ktorý posiela strana ma nastavený príznak SYN. Ak je nastavený príznak ACK, tak je v packete prítomný aj potvrdzovacie číslo . Vykoná sa v troch krokoch (three-way handshake)[[1]](#1):
+
+1. klient odošle datagram s nastaveným príznakom SYN a náhodne vygenerovaným poradovým číslom x (potvrdzovacie číslo = 0)
+2. server odošle datagram s nastavenými príznakmi SYN a ACK, s potvdrzovacím číslom=x + 1 a náhodne vygenerováným poradovým číslom y
+3. klient odošle datagram s nastaveným príznakom ACK s poradovým číslom=x+1 a číslom odpovede=y+1
+
 ### UDP
+
+Tento protokol je jednoduché rozhranie medzi sieťovovou a aplikačnou vrstvou. Nezaračuje doručenie správy a neudržuje stav (spojenie) už odoslaných správ. Na prenos packetov využíva hlavičku, v ktorej sa nachádzajú metadata.[[2]](#2) V našom prípade bola hlavičká tvorená 8 bitov dlhým operačným kódom (v prípade req `opcode = 0`, v prípade odpovede `opcode = 1`), dĺžko správy reprezentovanú 8 bitmi a obsahom samotnej správy.
 
 ## Program
 
@@ -56,8 +66,5 @@ Testy boli vykonané v referenčnom protredí. Testované boli hlavne prípady u
 
 ## Zdroje
 
-NOTE: upravit podla urciteho formatu zdrojov
-
-- https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
-
-* https://www.tutorialspoint.com/c_standard_library/c_function_signal.htm
+- <a id="1">[1]</a> Transmission Control Protocol \[online\], posledná aktualizácia 11. 11. 2022 v 06:42, https://cs.wikipedia.org/wiki/Transmission_Control_Protocol
+- <a id="2">[2]</a>User Datagram Protocol \[onlie\], posledná aktualizácia 24. 8. 2021 v 00:16, https://cs.wikipedia.org/wiki/User_Datagram_Protocol

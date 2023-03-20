@@ -3,11 +3,10 @@ CC=gcc
 CFLAGS=-std=c99 -Wall -Werror -pedantic
 D_FLAGS=-fdiagnostics-color=always -g
 
-TEST_DIR=tests
+LOGIN=xponec01
+
 ARGS_UDP=-h 127.0.0.1 -p 2023 -m udp
 ARGS_TCP=-h 127.0.0.1 -p 2023 -m tcp
-
-ERR_FILE=err.log
 
 make: ${FILE}.c
 	${CC} ${CFLAGS} ${FILE}.c -o ${FILE}
@@ -29,3 +28,7 @@ win:
 
 test_inputs: make 
 	python3 test_inputs.py 
+
+zip:
+	zip ${LOGIN}.zip ./imgs/* Makefile test_inputs.py ${FILE}.c README.md LICENSE CHANGELOG.md
+	

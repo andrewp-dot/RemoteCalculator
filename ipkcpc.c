@@ -279,9 +279,8 @@ int udp_connection(int port, char * host)
     char buffer[UDP_BUFFER_LIMIT];
     BZERO(buffer)
 
-    while (true) //mozno zmenit aby sa to nedalo ukoncit CTRL+D
+    while ( fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin)) 
     {
-        fgets(buffer, UDP_BUFFER_LIMIT-UDP_HEADER_OFFSET, stdin);
         char msg_buffer[UDP_BUFFER_LIMIT] = {0};
         msg_buffer[0] = 0;
         msg_buffer[1] = strlen(buffer);
